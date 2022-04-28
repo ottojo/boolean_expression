@@ -30,10 +30,10 @@ pub(crate) type BDDLabel = usize;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct BDDNode {
-    pub label: BDDLabel,
-    pub lo: BDDFunc,
-    pub hi: BDDFunc,
-    pub varcount: usize,
+    pub label: BDDLabel, // Top variable
+    pub lo: BDDFunc,     // then?
+    pub hi: BDDFunc,     // if?
+    pub varcount: usize, // ?
 }
 
 fn bdd_func_str(b: BDDFunc) -> String {
@@ -61,7 +61,7 @@ impl fmt::Debug for BDDNode {
 #[derive(Clone, Debug)]
 pub(crate) struct LabelBDD {
     pub nodes: Vec<BDDNode>,
-    dedup_hash: HashMap<BDDNode, BDDFunc>,
+    dedup_hash: HashMap<BDDNode, BDDFunc>, // unique-table: Mapping node definition to index in nodes vec
 }
 
 impl LabelBDD {
@@ -72,6 +72,7 @@ impl LabelBDD {
         }
     }
 
+    // insert node?
     fn get_node(&mut self, label: BDDLabel, lo: BDDFunc, hi: BDDFunc) -> BDDFunc {
         if lo == hi {
             return lo;
@@ -83,11 +84,11 @@ impl LabelBDD {
             varcount: cmp::min(self.sat_varcount(lo), self.sat_varcount(hi) + 1),
         };
         match self.dedup_hash.entry(n.clone()) {
-            HashEntry::Occupied(o) => *o.get(),
+            HashEntry::Occupied(o) => *o.get(), // Return existing node
             HashEntry::Vacant(v) => {
                 let idx = self.nodes.len() as BDDFunc;
-                self.nodes.push(n);
-                v.insert(idx);
+                self.nodes.push(n); // Store node
+                v.insert(idx);      // Save index in hashtable
                 idx
             }
         }
@@ -126,14 +127,17 @@ impl LabelBDD {
 
         let node = self.nodes[f].clone();
         if label < node.label {
+            // label does not occur in f
             f
         } else if label == node.label {
+            // label is top variable of f
             if val {
                 node.hi
             } else {
                 node.lo
             }
         } else {
+            // label occurs somewhere lower in the bdd -> return f with restricted hi/lo
             let lo = self.restrict(node.lo, label, val);
             let hi = self.restrict(node.hi, label, val);
             self.get_node(node.label, lo, hi)
@@ -158,22 +162,22 @@ impl LabelBDD {
             e
         } else if t == e {
             t
-        } else if t == BDD_ONE && e == BDD_ZERO {
+        } else if t == BDD_ONE && e == BDD_ZERO { // t=0 && e=1 => !i?
             i
         } else {
-            let i_var = self.min_label(i).unwrap_or(usize::MAX);
+            let i_var = self.min_label(i).unwrap_or(usize::MAX); // MAX = 0
             let t_var = self.min_label(t).unwrap_or(usize::MAX);
             let e_var = self.min_label(e).unwrap_or(usize::MAX);
-            let split = cmp::min(i_var, cmp::min(t_var, e_var));
+            let split = cmp::min(i_var, cmp::min(t_var, e_var)); // top variable v
             assert!(split != usize::MAX);
-            let i_lo = self.restrict(i, split, false);
-            let t_lo = self.restrict(t, split, false);
-            let e_lo = self.restrict(e, split, false);
-            let i_hi = self.restrict(i, split, true);
-            let t_hi = self.restrict(t, split, true);
-            let e_hi = self.restrict(e, split, true);
-            let lo = self.ite(i_lo, t_lo, e_lo);
-            let hi = self.ite(i_hi, t_hi, e_hi);
+            let i_lo = self.restrict(i, split, false); // F_!v
+            let t_lo = self.restrict(t, split, false); // G_!v
+            let e_lo = self.restrict(e, split, false); // H_!v
+            let i_hi = self.restrict(i, split, true); // F_v
+            let t_hi = self.restrict(t, split, true); // G_v
+            let e_hi = self.restrict(e, split, true); // H_v
+            let lo = self.ite(i_lo, t_lo, e_lo); // E = ite(F_!v, G_!v, H_!v)
+            let hi = self.ite(i_hi, t_hi, e_hi); // T = ite(F_v, G_v, H_v)
             self.get_node(split, lo, hi)
         }
     }
