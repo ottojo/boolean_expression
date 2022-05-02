@@ -97,6 +97,7 @@ where
             }
             Expr::Terminal(t) => Expr::Terminal(t),
             Expr::Const(c) => Expr::Const(c),
+            Expr::Xor(a, b, c) => Expr::Xor(a, b, c),
         };
         if changed {
             self.changed = true;

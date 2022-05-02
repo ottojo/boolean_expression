@@ -88,7 +88,7 @@ impl LabelBDD {
             HashEntry::Vacant(v) => {
                 let idx = self.nodes.len() as BDDFunc;
                 self.nodes.push(n); // Store node
-                v.insert(idx);      // Save index in hashtable
+                v.insert(idx); // Save index in hashtable
                 idx
             }
         }
@@ -162,7 +162,8 @@ impl LabelBDD {
             e
         } else if t == e {
             t
-        } else if t == BDD_ONE && e == BDD_ZERO { // t=0 && e=1 => !i?
+        } else if t == BDD_ONE && e == BDD_ZERO {
+            // t=0 && e=1 => !i?
             i
         } else {
             let i_var = self.min_label(i).unwrap_or(usize::MAX); // MAX = 0
@@ -198,6 +199,8 @@ impl LabelBDD {
         let not_b = self.not(b);
         self.ite(a, not_b, b)
     }
+
+    pub fn xor_direct(&mut self, a: BDDFunc, b: BDDFunc, c: BDDFunc) -> BDDFunc {}
 
     pub fn implies(&mut self, a: BDDFunc, b: BDDFunc) -> BDDFunc {
         let not_a = self.not(a);
@@ -413,6 +416,10 @@ where
         self.bdd.xor(a, b)
     }
 
+    pub fn xor_direct(&mut self, a: BDDFunc, b: BDDFunc, c: BDDFunc) -> BDDFunc {
+        self.bdd.xor_direct(a, b, c)
+    }
+
     /// Produce a function within the BDD representing the logical implication `a` -> `b`.
     pub fn implies(&mut self, a: BDDFunc, b: BDDFunc) -> BDDFunc {
         self.bdd.implies(a, b)
@@ -450,6 +457,12 @@ where
                 let aval = self.from_expr(&**a);
                 let bval = self.from_expr(&**b);
                 self.or(aval, bval)
+            }
+            &Expr::Xor(ref a, ref b, ref c) => {
+                let aval = self.from_expr(&**a);
+                let bval = self.from_expr(&**b);
+                let cval = self.from_expr(&**c);
+                self.xor_direct(aval, bval, cval)
             }
         }
     }
@@ -748,6 +761,22 @@ mod test {
         test_bdd(&b, f, &mut h, &[true, true, true, true], true);
         test_bdd(&b, f, &mut h, &[false, false, false, true], false);
         test_bdd(&b, f, &mut h, &[false, false, false, false], true);
+    }
+
+    #[test]
+    fn bdd_xor() {
+        let mut h = HashMap::new();
+        let mut b = BDD::new();
+        let expr = Expr::xor_direct(Expr::Terminal(0), Expr::Terminal(1), Expr::Terminal(2));
+        let f = b.from_expr(&expr);
+        test_bdd(&b, f, &mut h, &[false, false, false], false);
+        test_bdd(&b, f, &mut h, &[false, false, true], true);
+        test_bdd(&b, f, &mut h, &[false, true, false], true);
+        test_bdd(&b, f, &mut h, &[false, true, true], false);
+        test_bdd(&b, f, &mut h, &[true, false, false], true);
+        test_bdd(&b, f, &mut h, &[true, false, true], false);
+        test_bdd(&b, f, &mut h, &[true, true, false], false);
+        test_bdd(&b, f, &mut h, &[true, true, true], false);
     }
 
     fn bits_to_hashmap(bits: usize, n: usize, h: &mut HashMap<u32, bool>) {

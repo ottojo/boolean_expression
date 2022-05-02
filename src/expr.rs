@@ -54,6 +54,9 @@ where
 
     /// The logical OR of the two expression arguments.
     Or(Box<Expr<T>>, Box<Expr<T>>),
+
+    /// The Logical XOR (exactly one) of three expressions.
+    Xor(Box<Expr<T>>, Box<Expr<T>>, Box<Expr<T>>),
 }
 
 impl<T> Expr<T>
@@ -124,6 +127,10 @@ where
         nand & or
     }
 
+    pub fn xor_direct(e1: Expr<T>, e2: Expr<T>, e3: Expr<T>) -> Expr<T> {
+        Expr::Xor(Box::new(e1), Box::new(e2), Box::new(e3))
+    }
+
     /// Evaluates the expression with a particular set of terminal assignments.
     /// If any terminals are not assigned, they default to `false`.
     pub fn evaluate(&self, vals: &HashMap<T, bool>) -> bool {
@@ -133,6 +140,12 @@ where
             &Expr::And(ref a, ref b) => a.evaluate(vals) && b.evaluate(vals),
             &Expr::Or(ref a, ref b) => a.evaluate(vals) || b.evaluate(vals),
             &Expr::Not(ref x) => !x.evaluate(vals),
+            &Expr::Xor(ref a, ref b, ref c) => {
+                let a = a.evaluate(vals);
+                let b = b.evaluate(vals);
+                let c = c.evaluate(vals);
+                (a || b || c) && (!a || !b) && (!a || !c) && (!b || !c)
+            }
         }
     }
 
@@ -166,6 +179,12 @@ where
             Expr::And(a, b) => a.evaluate_with1(f) && b.evaluate_with1(f),
             Expr::Or(a, b) => a.evaluate_with1(f) || b.evaluate_with1(f),
             Expr::Not(x) => !x.evaluate_with1(f),
+            Expr::Xor(a, b, c) => {
+                let a = a.evaluate_with1(f);
+                let b = b.evaluate_with1(f);
+                let c = c.evaluate_with1(f);
+                (a || b || c) && (!a || !b) && (!a || !c) && (!b || !c)
+            }
         }
     }
 
@@ -251,6 +270,7 @@ where
             &Expr::Not(ref n) => Expr::not(n.map1(f)),
             &Expr::And(ref a, ref b) => Expr::and(a.map1(f), b.map1(f)),
             &Expr::Or(ref a, ref b) => Expr::or(a.map1(f), b.map1(f)),
+            &Expr::Xor(ref a, ref b, ref c) => Expr::xor_direct(a.map1(f), b.map1(f), c.map1(f)),
         }
     }
 }
