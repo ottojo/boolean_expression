@@ -200,7 +200,20 @@ impl LabelBDD {
         self.ite(a, not_b, b)
     }
 
-    pub fn xor_direct(&mut self, a: BDDFunc, b: BDDFunc, c: BDDFunc) -> BDDFunc {}
+    pub fn xor_direct(&mut self, a: BDDLabel, b: BDDLabel, c: BDDLabel) -> BDDFunc {
+        let mut prev_true_col = BDD_ONE;
+        let mut prev_false_col = BDD_ZERO;
+        let mut vars = vec![a, b, c];
+        vars.sort();
+        let last_var = vars.remove(0);
+        vars.reverse();
+        for var in vars {
+            let t = self.get_node(var, prev_true_col, BDD_ZERO);
+            prev_false_col = self.get_node(var, prev_false_col, prev_true_col);
+            prev_true_col = t;
+        }
+        self.get_node(last_var, prev_false_col, prev_true_col)
+    }
 
     pub fn implies(&mut self, a: BDDFunc, b: BDDFunc) -> BDDFunc {
         let not_a = self.not(a);
@@ -459,9 +472,9 @@ where
                 self.or(aval, bval)
             }
             &Expr::Xor(ref a, ref b, ref c) => {
-                let aval = self.from_expr(&**a);
-                let bval = self.from_expr(&**b);
-                let cval = self.from_expr(&**c);
+                let aval = self.label(a.clone());
+                let bval = self.label(b.clone());
+                let cval = self.label(c.clone());
                 self.xor_direct(aval, bval, cval)
             }
         }
@@ -767,7 +780,7 @@ mod test {
     fn bdd_xor() {
         let mut h = HashMap::new();
         let mut b = BDD::new();
-        let expr = Expr::xor_direct(Expr::Terminal(0), Expr::Terminal(1), Expr::Terminal(2));
+        let expr = Expr::xor_direct(0, 1, 2);
         let f = b.from_expr(&expr);
         test_bdd(&b, f, &mut h, &[false, false, false], false);
         test_bdd(&b, f, &mut h, &[false, false, true], true);
