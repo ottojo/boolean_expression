@@ -55,8 +55,11 @@ where
     /// The logical OR of the two expression arguments.
     Or(Box<Expr<T>>, Box<Expr<T>>),
 
-    /// The Logical XOR (exactly one) of three variables.
-    Xor(T, T, T),
+    /// The Logical XOR (exactly one) of three variables, implemented by directly generating BDD nodes.
+    DirectXor(Vec<T>),
+
+    /// The Logical XOR (exactly one) of three variables, implemented using ite.
+    IteXor(Vec<T>),
 }
 
 impl<T> Expr<T>
@@ -127,8 +130,12 @@ where
         nand & or
     }
 
-    pub fn xor_direct(e1: T, e2: T, e3: T) -> Expr<T> {
-        Expr::Xor(e1, e2, e3)
+    pub fn xor_direct(e: Vec<T>) -> Expr<T> {
+        Expr::DirectXor(e)
+    }
+
+    pub fn xor_ite(e: Vec<T>) -> Expr<T> {
+        Expr::IteXor(e)
     }
 
     /// Evaluates the expression with a particular set of terminal assignments.
@@ -140,11 +147,25 @@ where
             &Expr::And(ref a, ref b) => a.evaluate(vals) && b.evaluate(vals),
             &Expr::Or(ref a, ref b) => a.evaluate(vals) || b.evaluate(vals),
             &Expr::Not(ref x) => !x.evaluate(vals),
-            &Expr::Xor(ref a, ref b, ref c) => {
-                let a = *vals.get(a).unwrap_or(&false);
-                let b = *vals.get(b).unwrap_or(&false);
-                let c = *vals.get(c).unwrap_or(&false);
-                (a || b || c) && (!a || !b) && (!a || !c) && (!b || !c)
+            &Expr::DirectXor(ref a) => {
+                let mut res = false;
+                for v in a.into_iter().map(|t| *vals.get(t).unwrap_or(&false)) {
+                    if v && res {
+                        return false;
+                    }
+                    res |= v;
+                }
+                return res;
+            }
+            Expr::IteXor(ref a) => {
+                let mut res = false;
+                for v in a.into_iter().map(|t| *vals.get(t).unwrap_or(&false)) {
+                    if v && res {
+                        return false;
+                    }
+                    res |= v;
+                }
+                return res;
             }
         }
     }
@@ -179,11 +200,25 @@ where
             Expr::And(a, b) => a.evaluate_with1(f) && b.evaluate_with1(f),
             Expr::Or(a, b) => a.evaluate_with1(f) || b.evaluate_with1(f),
             Expr::Not(x) => !x.evaluate_with1(f),
-            Expr::Xor(a, b, c) => {
-                let a = f(a);
-                let b = f(b);
-                let c = f(c);
-                (a || b || c) && (!a || !b) && (!a || !c) && (!b || !c)
+            Expr::DirectXor(a) => {
+                let mut res = false;
+                for v in a.into_iter().map(f) {
+                    if v && res {
+                        return false;
+                    }
+                    res |= v;
+                }
+                return res;
+            }
+            Expr::IteXor(a) => {
+                let mut res = false;
+                for v in a.into_iter().map(f) {
+                    if v && res {
+                        return false;
+                    }
+                    res |= v;
+                }
+                return res;
             }
         }
     }
@@ -270,7 +305,8 @@ where
             &Expr::Not(ref n) => Expr::not(n.map1(f)),
             &Expr::And(ref a, ref b) => Expr::and(a.map1(f), b.map1(f)),
             &Expr::Or(ref a, ref b) => Expr::or(a.map1(f), b.map1(f)),
-            &Expr::Xor(ref a, ref b, ref c) => Expr::xor_direct(f(a), f(b), f(c)),
+            &Expr::DirectXor(ref a) => Expr::xor_direct(a.into_iter().map(f).collect()),
+            &Expr::IteXor(ref a) => Expr::xor_ite(a.into_iter().map(f).collect()),
         }
     }
 }
