@@ -388,6 +388,11 @@ impl<T> BDD<T>
 where
     T: Clone + Debug + Eq + Hash,
 {
+    /// Node count
+    pub fn nodes(&self) -> usize {
+        self.bdd.nodes.len()
+    }
+
     /// Produce a new, empty, BDD.
     pub fn new() -> BDD<T> {
         BDD {
