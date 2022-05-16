@@ -31,8 +31,8 @@ pub(crate) type BDDLabel = usize;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct BDDNode {
     pub label: BDDLabel, // Top variable
-    pub lo: BDDFunc,     // then?
-    pub hi: BDDFunc,     // if?
+    pub lo: BDDFunc,     // else
+    pub hi: BDDFunc,     // then
     pub varcount: usize, // ?
 }
 
